@@ -1,0 +1,10 @@
+<?php
+namespace App\Contracts\DriftQL;
+
+class $class extends \Clicalmani\Foundation\Auth\Contract
+{
+    public function authorize(): bool
+    {
+        throw new \Exception('Not implemented');
+    }
+}

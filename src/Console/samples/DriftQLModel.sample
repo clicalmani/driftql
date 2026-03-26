@@ -1,0 +1,16 @@
+import { Elegant } from "../libs/driftql";
+
+export class $model extends Elegant {
+  
+  protected static resourceName = '$model';
+
+  /**
+   * You can add types for autocomplete.
+   */
+  public id: number | undefined;
+  
+  constructor(data: any) {
+    super();
+    Object.assign(this, data);
+  }
+}

@@ -1,0 +1,29 @@
+<?php
+namespace Database\Entities;
+
+use Clicalmani\Database\DataTypes\Char;
+use Clicalmani\Database\DataTypes\Integer;
+use Clicalmani\Database\Factory\Entity;
+use Clicalmani\Database\Factory\Index;
+use Clicalmani\Database\Factory\PrimaryKey;
+use Clicalmani\Database\Factory\Property;
+
+#[Index(
+    name: 'guidUNIQUE',
+    key: 'guid',
+    unique: true
+)]
+class PermissionEntity extends Entity
+{
+    #[Property(
+        length: 10,
+        unsigned: true,
+        autoIncrement: true
+    ), PrimaryKey]
+    public Integer \$id;
+
+    #[Property(
+        length: 5,
+    )]
+    public Char \$guid;
+}

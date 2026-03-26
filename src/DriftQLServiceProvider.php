@@ -5,24 +5,32 @@ use Clicalmani\Foundation\Providers\ServiceProvider;
 
 class DriftQLServiceProvider extends ServiceProvider
 {
-    private static $config;
-
     public function register(): void
     {
         parent::register();
 
-        foreach ([Rules\DriftQLModelRule::class, Rules\DriftQLQueryRule::class] as $rule) {
+        foreach ([Rules\DriftQLModelRule::class, Rules\DriftQLQueryRule::class, Rules\DriftQLJoinsRule::class] as $rule) {
             \Clicalmani\Foundation\Providers\ValidationServiceProvider::addRule($rule);
+        }
+
+        foreach ([
+            Console\MakeConfig::class, 
+            Console\MakeModel::class, 
+            Console\CreateEntities::class, 
+            Console\MakeContract::class
+        ] as $command) {
+            app()->addCommand($command);
+        }
+
+        if ( isConsoleMode() ) {
+            app()->console->make();
         }
     }
 
     public function boot(): void
     {
-        static::$config = require_once config_path('/driftql.php');
-    }
-
-    public static function getConfig()
-    {
-        return static::$config;
+        if ( is_file(config_path('/driftql.php')) ) {
+            app()->config->set('driftql', require_once config_path('/driftql.php'));
+        }
     }
 }

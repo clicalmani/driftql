@@ -16,11 +16,15 @@ class ModelBridge extends Controller
      */
     #[AsValidator(
         model: 'required|dql_model',
-        query: 'required|dql_query'
+        query: 'required|dql_query',
+        joins: 'required|dql_joins',
+        distinct: 'required|bool',
+        by_id: 'bool|sometimes',
+        id: 'string|max:100|sometimes',
     )]
     public function __invoke(DriftQLRequest $request) : ResponseInterface
     {
-        $config = DriftQLServiceProvider::getConfig();
+        $config = config('driftql');
         $currentUserRole = auth()->user()->role;
         $requestedModel = "\\App\\Models\\" . $request->model;
         $query = $request->query;
@@ -37,12 +41,27 @@ class ModelBridge extends Controller
         };
 
         $where = true;
+        $orders = [];
         $bindings = [];
+
+        if ($request->by_id) {
+            $query['wheres'] = [];
+            $query['orders'] = [];
+            $query['limit'] = 1;
+
+            $where = $model_instance->getKey() . ' = ?';
+            $bindings[] = $request->id;
+        }
 
         if (isset($config['policies'][$requestedModel][$currentUserRole])) {
             $policy = $config['policies'][$requestedModel][$currentUserRole];
 
-            if ($policy !== null) {
+            if ( is_array($policy) ) {
+
+                // Check policy keys
+                if (!isset($policy['column'], $policy['operator'], $policy['value'])) {
+                    return response()->error('Invalid policy configuration');
+                }
 
                 if (!$columnExists($policy['column'])) {
                     return response()->error('Policy column does not exist in the database schema');
@@ -59,17 +78,43 @@ class ModelBridge extends Controller
 
         foreach ($query['wheres'] as $clause) {
 
-            if (!$columnExists($policy['column'])) {
+            if (!$columnExists($clause['column'])) {
                 return response()->error('Where clause column does not exist in the database schema');
             }
 
-            $where .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . $clause['operator'] . '?';
-            $bindings[] = $clause['value'];
+            $where .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . ' ' . $clause['operator'] . ' ?';
+
+            if (strtolower($clause['operator']) === 'in' && is_array($clause['value'])) {
+                $placeholders = implode(', ', array_fill(0, count($clause['value']), '?'));
+                $where = str_replace('?', "($placeholders)", $where);
+                $bindings = array_merge($bindings, $clause['value']);
+            } elseif (strtolower($clause['operator']) === 'between' && is_array($clause['value']) && count($clause['value']) === 2) {
+                $where = str_replace('?', '? AND ?', $where);
+                $bindings = array_merge($bindings, $clause['value']);
+            } else {
+                $bindings[] = $clause['value'];
+            }
+        }
+
+        foreach ($query['orders'] as $order) {
+            $orders[] = $order['column'] . ' ' . $order['direction'];
         }
         
-        $model_instance->limit($query['offset'], $query['limit']);
-        $model_instance->where($where, $bindings);
+        /** @var \Clicalmani\Database\Factory\Models\Elegant */
+        $model_instance = $requestedModel::where($where, $bindings);
 
-        return response()->json($model_instance->fetch());
+        $model_instance->distinct($request->distinct);
+
+        foreach ($request->joins as $join) {
+            $model_instance->{$join['type'] . 'Join'}($join['resource'], $join['fkey'], $join['okey']);
+        }
+
+        if ( !empty($orders) ) {
+            $model_instance->orderBy(join(', ', $orders));
+        }
+
+        $model_instance->limit($query['offset'], $query['limit']);
+        
+        return response()->json($model_instance->fetch()->toArray());
     }
 }

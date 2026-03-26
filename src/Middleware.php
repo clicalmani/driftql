@@ -21,14 +21,18 @@ class Middleware extends Base
         $config = DriftQLServiceProvider::getConfig();
 
         if ( ! $config['enabled'] ) $response->forbiden();
-        
-        if ($session_id = $request->cookie()->get('_SESSION_COOKIE')) {
-            $session = new \Clicalmani\Foundation\Http\Session\DBSessionHandler(false, ['driver' => 'mysql', 'table' => env('DB_TABLE_PREFIX') . 'sessions']);
-            $session->open('/', $session_id);
-            
-            if ($session->validate_sid($session_id)) return $next();
+
+        if ($user = $request->user()) {
+            if ($user->isAuthenticated() && false === $user->isOnline()) {
+                $user->destroy();
+                return $response->unauthorized();
+            }
+
+            $user->authenticate(); // Renew user authentication
+
+            return $next();
         }
-        
+
         return $response->unauthorized();
     }
 

@@ -1,11 +1,7 @@
 <?php
 namespace Tonka\DriftQL\Rules;
 
-use Clicalmani\Database\Factory\Schema;
-use Clicalmani\Foundation\Support\Facades\DB;
-use Tonka\DriftQL\DriftQLServiceProvider;
-
-class DriftQLQueryRule extends \Clicalmani\Validation\Rule
+class DriftQLQueryRule extends DriftQLRule
 {
     /**
      * Rule argument
@@ -29,23 +25,37 @@ class DriftQLQueryRule extends \Clicalmani\Validation\Rule
      */
     public function validate(mixed &$query) : bool
     {
-        $config = DriftQLServiceProvider::getConfig();
         $allowedOperators = ['=', '!=', '<>', '>', '<', '>=', '<=', 'LIKE', 'IN', 'NOT IN'];
         
         $query = json_decode($query, true);
-        $limit = $query['limit'];
-        $offset = $query['offset'];
-        $orders = $query['orders'];
-        $wheres = $query['wheres'];
+        
+        if ( ! is_array($query) || ! isset($query['offset'], $query['orders'], $query['wheres']) ) {
+            $this->error_message = 'Query must be a valid JSON array with keys: limit, offset, orders, wheres.';
+            return false;
+        }
+
+        $limit = $query['limit'] ?? config('driftql.limits.default_limit');
+        $offset = $query['offset'] ?? 0;
+        $orders = $query['orders'] ?? [];
+        $wheres = $query['wheres'] ?? [];
+
+        $query['limit'] = $limit;
+        $query['offset'] = $offset;
+        $query['orders'] = $orders;
+        $query['wheres'] = $wheres;
 
         if ( ! preg_match('/^\d+$/', $limit) || ! preg_match('/^\d+$/', $offset) ) {
             $this->error_message = "Limit and offset must be positive integers";
         }
 
-        if (!$limit) {
-            $query['limit'] = $config['limits']['default_limit'];
-        } elseif ($limit > $config['limits']['max_limit']) {
-            $query['limit'] = $config['limits']['max_limit'];
+        if ($limit > config('driftql.limits.max_limit')) {
+            $query['limit'] = config('driftql.limits.max_limit');
+        }
+
+        if ($policy = $this->getPolicy()) {
+            if ( is_subclass_of($policy, \Tonka\DriftQL\Security\Contract::class) && ! (new $policy)->authorize() ) {
+                $this->error_message = "Unauthorized query";
+            }
         }
 
         foreach ($orders as $order) {
@@ -64,8 +74,8 @@ class DriftQLQueryRule extends \Clicalmani\Validation\Rule
                 $this->error_message = "Operator $operator not allowed";
             }
 
-            if ( $config['security']['strict_column_check'] && !$this->isColumnAllowed($column) ) {
-                $this->error_message = "Colomn $column not allowed";
+            if ( $this->isStrictColumnCheckActive() && !$this->columnExists($column) ) {
+                $this->error_message = "Colomn $column does not exists";
             }
 
             if ( in_array($operator, ['IN', 'NOT IN']) && !is_array($value) ) {
@@ -90,16 +100,5 @@ class DriftQLQueryRule extends \Clicalmani\Validation\Rule
     public function message() : ?string
     {
         return $this->error_message;
-    }
-
-    private function isColumnAllowed(string $column): bool 
-    {
-        $model = "\\App\\Models\\" . request()['model'];
-        $parts = explode('.', $column);
-        $colName = end($parts);
-
-        $tableColumns = Schema::getColumnListing((new $model)->getTable());
-        
-        return in_array($colName, $tableColumns);
     }
 }

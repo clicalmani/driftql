@@ -1,7 +1,6 @@
 <?php
 namespace Tonka\DriftQL;
 
-use App\Providers\RouteServiceProvider;
 use Clicalmani\Routing\Route;
 use Inertia\Middleware;
 
@@ -36,9 +35,9 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
     public function matches(string $verb) : array
     {
         if ('post' !== $verb) return [];
-
+        
         $this->client = $this->getClientRoute();
-        $url_scheme = 'driftql';
+        $url_scheme = config('driftql.bridge_public_key');
         
         if ($url_scheme === trim(urldecode(client_uri()), '/')) {
             $route = $this->create($url_scheme);
@@ -75,15 +74,5 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
                 \Clicalmani\Foundation\Support\Facades\Route::getClientVerb()
             ) 
         );
-    }
-
-    /**
-     * Sanitize uri.
-     * 
-     * @return string
-     */
-    private function sanitizeUri(string $uri) : string
-    {
-        return rtrim(ltrim(preg_replace('/[\/]/', '\\/', trim($uri, ' /')), '{'), '}');
     }
 }

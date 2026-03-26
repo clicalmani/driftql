@@ -1,0 +1,50 @@
+<?php
+namespace Database\Entities;
+
+use Clicalmani\Database\DataTypes\Integer;
+use Clicalmani\Database\DataTypes\TinyInt;
+use Clicalmani\Database\Factory\Entity;
+use Clicalmani\Database\Factory\Index;
+use Clicalmani\Database\Factory\PrimaryKey;
+use Clicalmani\Database\Factory\Property;
+
+#[Index(
+    name: 'fk_roles_permissions_roles1_idx',
+    key: 'role_id',
+    constraint: 'fk_roles_permissions_roles1',
+    references: \App\Models\Role::class
+), Index(
+    name: 'fk_roles_permissions_permissions1_idx',
+    key: 'permission_id',
+    constraint: 'fk_roles_permissions_permissions1',
+    references: \App\Models\Permission::class
+), PrimaryKey(['role_id', 'permission_id'])]
+class RolePermissionEntity extends Entity
+{
+    #[Property(
+        length: 10,
+        unsigned: true
+    )]
+    public Integer \$role_id;
+
+    #[Property(
+        length: 10,
+        unsigned: true
+    )]
+    public Integer \$permission_id;
+
+    #[Property(
+        unsigned: true,
+    )]
+    public TinyInt|false \$read = false;
+
+    #[Property(
+        unsigned: true,
+    )]
+    public TinyInt|false \$write = false;
+
+    #[Property(
+        unsigned: true,
+    )]
+    public TinyInt|false \$create = false;
+}

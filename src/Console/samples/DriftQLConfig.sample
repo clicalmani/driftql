@@ -1,0 +1,6 @@
+export default {
+  baseURL: '/api/bridge',
+  timeout: 5000,
+  cache: 'default',
+  bridge_public_key: '$bridge_key',
+};

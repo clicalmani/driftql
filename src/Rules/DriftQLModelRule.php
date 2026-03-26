@@ -1,9 +1,7 @@
 <?php
 namespace Tonka\DriftQL\Rules;
 
-use Tonka\DriftQL\DriftQLServiceProvider;
-
-class DriftQLModelRule extends \Clicalmani\Validation\Rule
+class DriftQLModelRule extends DriftQLRule
 {
     /**
      * Rule argument
@@ -11,6 +9,8 @@ class DriftQLModelRule extends \Clicalmani\Validation\Rule
      * @var string
      */
     protected static string $argument = "dql_model";
+
+    private string $error_message = '';
 
     /**
      * Validate input
@@ -22,11 +22,10 @@ class DriftQLModelRule extends \Clicalmani\Validation\Rule
     {
         if ( ! preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $value) ) return false;
 
-        $config = DriftQLServiceProvider::getConfig();
-        $allowed_models = $config['whitelist']['allowed_models'];
-        $model = trim("App\\Models\\$value");
-        
-        if ( ! in_array($model, $allowed_models) ) return false;
+        if ( ! $this->isWhiteListed() ) {
+            $this->error_message = sprintf("The model '%s' is not allowed. Please add it to the whitelist in the DriftQL configuration.", $this->getRequestedModel());
+            return false;
+        }
 
         return true;
     }
@@ -38,6 +37,6 @@ class DriftQLModelRule extends \Clicalmani\Validation\Rule
      */
     public function message() : ?string
     {
-        return 'Invalid model name';
+        return $this->error_message;
     }
 }
