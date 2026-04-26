@@ -1,4 +1,4 @@
-import { Elegant } from "../libs/driftql";
+import { Elegant } from "driftql-react";
 
 export class $model extends Elegant {
   

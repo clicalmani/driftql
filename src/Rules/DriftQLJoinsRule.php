@@ -20,16 +20,22 @@ class DriftQLJoinsRule extends DriftQLRule
      */
     public function validate(mixed &$joins) : bool
     {
+        $joins = base64_decode($joins);
         $joins = json_decode($joins, true);
-
-        if ( ! is_array($joins) ) {
-            $this->error_message = 'Joins must be a valid JSON array.';
-            return false;
+        
+        if ( !$joins ) {
+            $joins = [];
+            return true;
         }
-
-        if ( empty($joins) ) return true;
-
+        
         foreach ($joins as $index => $join) {
+            $join = json_decode($join, true);
+            
+            if ( !$join) {
+                unset($joins[$index]);
+                continue;
+            }
+
             if ( ! isset($join['resource'], $join['type']) ) {
                 $this->error_message = 'Each join must have a resource and type.';
                 return false;
@@ -83,11 +89,5 @@ class DriftQLJoinsRule extends DriftQLRule
     public function message() : ?string
     {
         return $this->error_message;
-    }
-
-    private function cleanKey(string $key): string
-    {
-        $arr = explode('.', $key);
-        return end($arr);
     }
 }

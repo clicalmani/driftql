@@ -1,12 +1,11 @@
 <?php 
 namespace Tonka\DriftQL;
 
-use App\Http\Requests\DriftQLRequest;
-use Clicalmani\Foundation\Acme\Controller;
+use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
 use Clicalmani\Validation\AsValidator;
 
-class ModelBridge extends Controller
+class SelectBridge extends Bridge
 {
     /**
      * Handle the incoming RequestInterface;.
@@ -15,46 +14,37 @@ class ModelBridge extends Controller
      * @return \Clicalmani\Foundation\Http\ResponseInterface
      */
     #[AsValidator(
-        model: 'required|dql_model',
-        query: 'required|dql_query',
-        joins: 'required|dql_joins',
-        distinct: 'required|bool',
-        by_id: 'bool|sometimes',
-        id: 'string|max:100|sometimes',
+        __dq_model: 'required|dql_model',
+        __dq_query: 'required|dql_query',
+        __dq_distinct: 'required|bool',
+        __dq_by_id: 'bool|sometimes',
+        __dq_id: 'string|max:100|sometimes',
     )]
-    public function __invoke(DriftQLRequest $request) : ResponseInterface
+    public function __invoke(RequestInterface $request) : ResponseInterface
     {
-        $config = config('driftql');
-        $currentUserRole = auth()->user()->role;
-        $requestedModel = "\\App\\Models\\" . $request->model;
-        $query = $request->query;
+        $query = $request->__dq_query;
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
-        $model_instance = new $requestedModel;
+        $model_instance = $this->getModel();
         /** @var string */
-        $table = $model_instance->getTable();
-        /** @var string[] */
-        $columns = \Clicalmani\Database\Factory\Schema::getColumnListing($table);
-
-        $columnExists = function(string $column) use($config, $columns) {
-            if (!$config['security']['strict_column_check']) return true;
-            return in_array($column, $columns);
-        };
-
+        $currentUserRole = auth()->user()->role;
+        
         $where = true;
+        $having = true;
         $orders = [];
+        $groups = [];
         $bindings = [];
 
-        if ($request->by_id) {
+        if ($request->__dq_by_id) {
             $query['wheres'] = [];
             $query['orders'] = [];
             $query['limit'] = 1;
 
             $where = $model_instance->getKey() . ' = ?';
-            $bindings[] = $request->id;
+            $bindings[] = $request->__dq_id;
         }
 
-        if (isset($config['policies'][$requestedModel][$currentUserRole])) {
-            $policy = $config['policies'][$requestedModel][$currentUserRole];
+        if (isset($config['policies'][$model_instance::class][$currentUserRole])) {
+            $policy = $this->getConfig()['policies'][$model_instance::class][$currentUserRole];
 
             if ( is_array($policy) ) {
 
@@ -63,7 +53,7 @@ class ModelBridge extends Controller
                     return response()->error('Invalid policy configuration');
                 }
 
-                if (!$columnExists($policy['column'])) {
+                if (!$this->columnExists($policy['column'])) {
                     return response()->error('Policy column does not exist in the database schema');
                 }
 
@@ -77,10 +67,6 @@ class ModelBridge extends Controller
         }
 
         foreach ($query['wheres'] as $clause) {
-
-            if (!$columnExists($clause['column'])) {
-                return response()->error('Where clause column does not exist in the database schema');
-            }
 
             $where .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . ' ' . $clause['operator'] . ' ?';
 
@@ -99,13 +85,32 @@ class ModelBridge extends Controller
         foreach ($query['orders'] as $order) {
             $orders[] = $order['column'] . ' ' . $order['direction'];
         }
+
+        foreach ($query['groups'] as $group) {
+            $groups[] = $group['column'] . ' ' . $group['direction'];
+        }
+
+        foreach ($query['havings'] as $clause) {
+
+            $having .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . ' ' . $clause['operator'] . ' ';
+
+            if (strtolower($clause['operator']) === 'in' && is_array($clause['value'])) {
+                $having .= '(' . collect($clause['value'])->map(fn($v) => '"' . $v . '"')->join() . ')';
+            } elseif (strtolower($clause['operator']) === 'between' && is_array($clause['value']) && count($clause['value']) === 2) {
+                $having .= $clause['value'][0] . ' AND ' . $clause['value'][1];
+            }
+        }
         
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
-        $model_instance = $requestedModel::where($where, $bindings);
+        $model_instance = $model_instance::class::where($where, $bindings);
 
-        $model_instance->distinct($request->distinct);
+        if ($query['havings']) {
+            $model_instance->having($having);
+        }
 
-        foreach ($request->joins as $join) {
+        $model_instance->distinct($request->__dq_distinct);
+        
+        foreach ($query['joins'] as $join) {
             $model_instance->{$join['type'] . 'Join'}($join['resource'], $join['fkey'], $join['okey']);
         }
 
@@ -113,7 +118,11 @@ class ModelBridge extends Controller
             $model_instance->orderBy(join(', ', $orders));
         }
 
-        $model_instance->limit($query['offset'], $query['limit']);
+        if ( !empty($groups) ) {
+            $model_instance->groupBy(join(', ', $groups));
+        }
+
+        $model_instance->limit(@ $query['offset'] ?? 0, @ $query['limit'] ?? 1);
         
         return response()->json($model_instance->fetch()->toArray());
     }

@@ -4,7 +4,6 @@ namespace App\Http\Middlewares;
 use Clicalmani\Foundation\Http\Middlewares\Middleware as Base;
 use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
-use Tonka\DriftQL\DriftQLServiceProvider;
 
 class Middleware extends Base 
 {
@@ -18,19 +17,19 @@ class Middleware extends Base
      */
     public function handle(RequestInterface $request, ResponseInterface $response, \Closure $next) : \Clicalmani\Foundation\Http\ResponseInterface|\Clicalmani\Foundation\Http\RedirectInterface
     {
-        $config = DriftQLServiceProvider::getConfig();
+        if ($config = config('driftql')) {
+            if ( ! $config['enabled'] ) $response->forbidden();
 
-        if ( ! $config['enabled'] ) $response->forbiden();
+            if ($user = $request->user()) {
+                if ($user->isAuthenticated() && false === $user->isOnline()) {
+                    $user->destroy();
+                    return $response->unauthorized();
+                }
 
-        if ($user = $request->user()) {
-            if ($user->isAuthenticated() && false === $user->isOnline()) {
-                $user->destroy();
-                return $response->unauthorized();
+                $user->authenticate(); // Renew user authentication
+
+                return $next();
             }
-
-            $user->authenticate(); // Renew user authentication
-
-            return $next();
         }
 
         return $response->unauthorized();

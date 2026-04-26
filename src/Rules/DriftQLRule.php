@@ -3,9 +3,9 @@ namespace Tonka\DriftQL\Rules;
 
 abstract class DriftQLRule extends \Clicalmani\Validation\Rule
 {
-    protected function columnExists(string $column): bool 
+    protected function columnExists(string $column, ?string $model = null): bool 
     {
-        $model = "\\" . $this->getRequestedModel();
+        $model = $model ?: "\\" . $this->getRequestedModel();
         $parts = explode('.', $column);
         $colName = end($parts);
 
@@ -16,7 +16,7 @@ abstract class DriftQLRule extends \Clicalmani\Validation\Rule
 
     protected function getRequestedModel(): string
     {
-        return trim("App\\Models\\" . request()['model']);
+        return trim("App\\Models\\" . request()->input('__dq_model'));
     }
 
     protected function getCurrentUserRole(): string
@@ -38,5 +38,11 @@ abstract class DriftQLRule extends \Clicalmani\Validation\Rule
     protected function isWhiteListed(?string $resource = null): bool
     {
         return in_array($resource ?? $this->getRequestedModel(), config('driftql.whitelist.allowed_models'));
+    }
+
+    protected function cleanKey(string $key): string
+    {
+        $arr = explode('.', $key);
+        return end($arr);
     }
 }

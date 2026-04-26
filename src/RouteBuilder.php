@@ -1,7 +1,10 @@
 <?php
 namespace Tonka\DriftQL;
 
+use Clicalmani\Foundation\Support\Facades\Str;
 use Clicalmani\Routing\Route;
+use Clicalmani\Routing\Segment;
+use Clicalmani\Routing\SegmentValidator;
 use Inertia\Middleware;
 
 class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Routing\BuilderInterface
@@ -34,16 +37,52 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
      */
     public function matches(string $verb) : array
     {
-        if ('post' !== $verb) return [];
+        if ( ! in_array($verb, ['post', 'patch', 'delete']) ) return [];
         
-        $this->client = $this->getClientRoute();
+        $route = $this->getClientRoute();
         $url_scheme = config('driftql.bridge_public_key');
         
-        if ($url_scheme === trim(urldecode(client_uri()), '/')) {
-            $route = $this->create($url_scheme);
+        if ($url_scheme && $route && str_starts_with(trim(client_url(), '/'), $url_scheme)) {
+            $route->verb = $verb;
             $route->addMiddleware('web');
             $route->addMiddleware(Middleware::class);
-            $route->action = ModelBridge::class;
+
+            $seg_names = [$url_scheme];
+            $arr = preg_split('/\//', client_url(), -1, PREG_SPLIT_NO_EMPTY);
+            
+            if ($hash = @$arr[1] ?? '') {
+                $seg_names[] = $hash;
+            }
+
+            foreach ($seg_names as $name) {
+                $segment = new Segment;
+                $segment->name = $name;
+                $route->appendSegment($segment);
+            }
+            
+            if (hash_equals($hash, sha1('store')) || hash_equals($hash, sha1('update'))) {
+                $route->action = WriteBridge::class;
+            } elseif (hash_equals($hash, sha1('delete'))) {
+                // ID Segment
+                $segment = new Segment;
+                $segment->name = config('route.parameter_prefix') . '__dq_id';
+                $segment->value = $_GET['__dq_id'];
+                $segment->validator = new SegmentValidator('__dq_id', 'required|id|model:' . Str::tableize($_GET['__dq_model']));
+                $route->appendSegment($segment);
+
+                // Model segment
+                $segment = new Segment;
+                $segment->name = config('route.parameter_prefix') . '__dq_model';
+                $segment->value = $_GET['__dq_model'];
+                $segment->validator = new SegmentValidator('__dq_model', 'required|dq_model');
+                $route->appendSegment($segment);
+
+                $route->action = DestroyBridge::class;
+            } elseif (hash_equals($hash, sha1('verify_password'))) {
+                $route->action = PasswordVerifyBridge::class;
+            } else {
+                $route->action = SelectBridge::class;
+            }
             
             return [$route];
         }
