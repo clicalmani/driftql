@@ -39,8 +39,8 @@ class MakeModel extends Command
         $success = file_put_contents(
             $filename, 
             ltrim( 
-                Sandbox::eval(file_get_contents( __DIR__ . "/Samples/DriftQLModel.sample"), [
-                    'model' => $name
+                Sandbox::eval(file_get_contents( __DIR__ . "/samples/DriftQLModel.sample"), [
+                    'model' => $name 
                 ])
             )
         );
