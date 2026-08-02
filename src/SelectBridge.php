@@ -26,7 +26,7 @@ class SelectBridge extends Bridge
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
         $model_instance = $this->getModel();
         /** @var string */
-        $currentUserRole = auth()->user()->role;
+        $currentUserRole = auth()?->user()?->role ?? null;
         
         $where = true;
         $having = true;
@@ -124,6 +124,6 @@ class SelectBridge extends Bridge
 
         $model_instance->limit(@ $query['offset'] ?? 0, @ $query['limit'] ?? 1);
         
-        return response()->json($model_instance->fetch()->toArray());
+        return response()->json($model_instance->get()->toArray());
     }
 }

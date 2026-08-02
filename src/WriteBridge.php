@@ -3,6 +3,7 @@ namespace Tonka\DriftQL;
 
 use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
+use Clicalmani\Foundation\Support\Facades\DB;
 use Clicalmani\Validation\AsValidator;
 
 class WriteBridge extends Bridge
@@ -23,15 +24,17 @@ class WriteBridge extends Bridge
                 return response()->forbidden();
             }
 
-            try {
-                /** @var \Clicalmani\Database\Factory\Models\Elegant */
-                $instance = $this->getModel();
-                $instance->swap();
-                $instance->save();
-                return response()->success($instance);
-            } catch (\PDOException $e) {
-                return response()->error(app()->environment('production') ? '': $e->getMessage());
-            }
+            return DB::transaction(function() {
+                try {
+                    /** @var \Clicalmani\Database\Factory\Models\Elegant */
+                    $instance = $this->getModel();
+                    $instance->swap();
+                    $instance->save();
+                    return response()->success($instance);
+                } catch (\PDOException $e) {
+                    return response()->error(app()->environment('production') ? '': $e->getMessage());
+                }
+            });
         }
 
         return response()->notFound();

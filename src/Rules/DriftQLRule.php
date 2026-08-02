@@ -21,7 +21,7 @@ abstract class DriftQLRule extends \Clicalmani\Validation\Rule
 
     protected function getCurrentUserRole(): string
     {
-        return auth()->user()->role;
+        return auth()?->user()?->role ?? '';
     }
 
     protected function isStrictColumnCheckActive(): bool

@@ -47,8 +47,8 @@ class CreateEntities extends Command
                 'keys' => ['id']
             ],
             [
-                'model' => 'RolePermission',
-                'name' => 'roles_permissions',
+                'model' => 'PermissionRole',
+                'name' => 'permission_role',
                 'keys' => ['role_id', 'permission_id']
             ],
             [

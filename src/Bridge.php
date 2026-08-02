@@ -52,6 +52,7 @@ class Bridge extends Controller
 
                 $policy = new $policy;
 
+                $policy->authorize();
                 $policy->prepareForValidation();
                 $policy->signatures();
                 Request::current($policy);

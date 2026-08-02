@@ -25,7 +25,7 @@ class MakeModel extends Command
 
     public function __construct(protected $rootPath)
     {
-        $this->models_path = $this->rootPath . '/resources/js/models';
+        $this->models_path = $this->rootPath . '/resources/js/database';
         $this->mkdir($this->models_path);
         parent::__construct();
     }
