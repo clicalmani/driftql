@@ -9,9 +9,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Clicalmani\Foundation\Sandbox\Sandbox;
 
 /**
- * Create a new middleware service
+ * Console command for creating new DriftQL TypeScript models.
  * 
- * @package Clicalmani\Console
+ * @package Tonka\DriftQL\Console
  * @author clicalmani
  */
 #[AsCommand(
@@ -21,15 +21,32 @@ use Clicalmani\Foundation\Sandbox\Sandbox;
 )]
 class MakeModel extends Command
 {
-    private $models_path;
+    /**
+     * Directory path where generated TypeScript model files are stored.
+     * 
+     * @var string
+     */
+    private string $models_path;
 
-    public function __construct(protected $rootPath)
+    /**
+     * MakeModel command constructor.
+     *
+     * @param string $rootPath Application root path.
+     */
+    public function __construct(protected string $rootPath)
     {
         $this->models_path = $this->rootPath . '/resources/js/database';
         $this->mkdir($this->models_path);
         parent::__construct();
     }
 
+    /**
+     * Execute the DriftQL model generation command.
+     *
+     * @param InputInterface $input Command input interface.
+     * @param OutputInterface $output Command output interface.
+     * @return int Command execution status code.
+     */
     protected function execute(InputInterface $input, OutputInterface $output) : int
     {
         $name = $input->getArgument('name');
@@ -39,13 +56,13 @@ class MakeModel extends Command
         $success = file_put_contents(
             $filename, 
             ltrim( 
-                Sandbox::eval(file_get_contents( __DIR__ . "/samples/DriftQLModel.sample"), [
+                Sandbox::eval(file_get_contents(__DIR__ . "/samples/DriftQLModel.sample"), [
                     'model' => $name 
                 ])
             )
         );
 
-        if ($success) {
+        if (false !== $success) {
             $output->writeln('Command executed successfully');
             return Command::SUCCESS;
         }
@@ -55,6 +72,11 @@ class MakeModel extends Command
         return Command::FAILURE;
     }
 
+    /**
+     * Configure command arguments and help information.
+     * 
+     * @return void
+     */
     protected function configure() : void
     {
         $this->setHelp('Create a new DriftQL model');

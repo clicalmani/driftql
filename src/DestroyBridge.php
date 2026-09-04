@@ -6,12 +6,20 @@ use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
 use Clicalmani\Validation\AsValidator;
 
+/**
+ * Class DestroyBridge
+ *
+ * Handles deletion requests for models via the DriftQL bridge layer.
+ *
+ * @package Tonka\DriftQL
+ * @author clicalmani
+ */
 class DestroyBridge extends Bridge
 {
     /**
-     * Handle the incoming RequestInterface;.
+     * Handle the incoming request to delete a resource.
      *
-     * @param  \Clicalmani\Foundation\Http\RequestInterface  $request
+     * @param \Clicalmani\Foundation\Http\RequestInterface $request
      * @return \Clicalmani\Foundation\Http\ResponseInterface
      */
     #[AsValidator(
@@ -30,7 +38,7 @@ class DestroyBridge extends Bridge
                 $instance = $this->getModel();
                 return response()->success($instance->delete());
             } catch (\PDOException $e) {
-                return response()->error(app()->environment('production') ? '': $e->getMessage());
+                return response()->error(app()->environment('production') ? '' : $e->getMessage());
             }
         }
 

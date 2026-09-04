@@ -9,9 +9,9 @@ use Clicalmani\Foundation\Sandbox\Sandbox;
 use Symfony\Component\Console\Input\ArrayInput;
 
 /**
- * Create a new middleware service
+ * Console command for generating default DriftQL RBAC entities and models.
  * 
- * @package Clicalmani\Console
+ * @package Tonka\DriftQL\Console
  * @author clicalmani
  */
 #[AsCommand(
@@ -21,50 +21,75 @@ use Symfony\Component\Console\Input\ArrayInput;
 )]
 class CreateEntities extends Command
 {
-    private $entities_path;
-    private $models_path;
+    /**
+     * Path to the target database entities directory.
+     * 
+     * @var string
+     */
+    private string $entities_path;
 
-    public function __construct(protected $rootPath)
+    /**
+     * Path to the target application models directory.
+     * 
+     * @var string
+     */
+    private string $models_path;
+
+    /**
+     * Create Entities command constructor.
+     *
+     * @param string $rootPath Application root path.
+     */
+    public function __construct(protected string $rootPath)
     {
         $this->entities_path = $rootPath . '/database/entities';
-        $this->models_path = $rootPath . '/app/Models';
+        $this->models_path   = $rootPath . '/app/Models';
+        
         $this->mkdir($this->entities_path);
         $this->mkdir($this->models_path);
+        
         parent::__construct();
     }
 
+    /**
+     * Execute the entity generation command.
+     *
+     * @param InputInterface $input Command input interface.
+     * @param OutputInterface $output Command output interface.
+     * @return int Command execution result code.
+     */
     protected function execute(InputInterface $input, OutputInterface $output) : int
     {
         $tables = [
             [
                 'model' => 'Role',
-                'name' => 'roles',
-                'keys' => ['id']
+                'name'  => 'roles',
+                'keys'  => ['id']
             ],
             [
                 'model' => 'Permission',
-                'name' => 'permissions',
-                'keys' => ['id']
+                'name'  => 'permissions',
+                'keys'  => ['id']
             ],
             [
                 'model' => 'PermissionRole',
-                'name' => 'permission_role',
-                'keys' => ['role_id', 'permission_id']
+                'name'  => 'permission_role',
+                'keys'  => ['role_id', 'permission_id']
             ],
             [
                 'model' => 'UserRole',
-                'name' => 'users_roles',
-                'keys' => ['user_id', 'role_id']
+                'name'  => 'users_roles',
+                'keys'  => ['user_id', 'role_id']
             ],
         ];
 
         foreach ($tables as $table) {
             $db_entity = new ArrayInput([
                 'command' => 'make:entity',
-                'model' => $table['model'],
-                'table' => $table['name'],
-                'keys' => $table['keys'],
-                '--seed' => null
+                'model'   => $table['model'],
+                'table'   => $table['name'],
+                'keys'    => $table['keys'],
+                '--seed'  => null
             ]);
 
             if (0 !== $this->getApplication()->doRun($db_entity, $output)) {
@@ -90,6 +115,11 @@ class CreateEntities extends Command
         return Command::SUCCESS;
     }
 
+    /**
+     * Configure command options and help information.
+     * 
+     * @return void
+     */
     protected function configure() : void
     {
         $this->setHelp('Migrate DriftQL database tables');

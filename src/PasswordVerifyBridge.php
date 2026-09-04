@@ -5,12 +5,20 @@ use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
 use Clicalmani\Validation\AsValidator;
 
+/**
+ * Class PasswordVerifyBridge
+ *
+ * Handles password verification requests over the DriftQL bridge layer.
+ *
+ * @package Tonka\DriftQL
+ * @author clicalmani
+ */
 class PasswordVerifyBridge extends Bridge
 {
     /**
-     * Handle the incoming RequestInterface;.
+     * Handle the incoming password verification request.
      *
-     * @param  \Clicalmani\Foundation\Http\RequestInterface  $request
+     * @param \Clicalmani\Foundation\Http\RequestInterface $request
      * @return \Clicalmani\Foundation\Http\ResponseInterface
      */
     #[AsValidator(
@@ -27,13 +35,14 @@ class PasswordVerifyBridge extends Bridge
                 /** @var \Clicalmani\Database\Factory\Models\Elegant */
                 $instance = $this->getModel();
 
+                // Compare the plain password against the hashed field on the model
                 if (password_verify($request->__dq_vfp_value, $instance->{$request->__dq_vfp_field})) {
                     return response()->json(['valid' => true]);
                 }
                 
                 return response()->json(['valid' => false]);
             } catch (\PDOException $e) {
-                return response()->error(app()->environment('production') ? '': $e->getMessage());
+                return response()->error(app()->environment('production') ? '' : $e->getMessage());
             }
         }
 

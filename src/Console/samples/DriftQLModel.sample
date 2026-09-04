@@ -7,7 +7,7 @@ export class $model extends Elegant {
   /**
    * You can add types for autocomplete.
    */
-  public id: number | undefined;
+  declare id: number | undefined;
   
   constructor(data: any) {
     super();

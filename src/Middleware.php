@@ -1,32 +1,45 @@
 <?php
-namespace App\Http\Middlewares;
+namespace Tonka\DriftQL;
 
 use Clicalmani\Foundation\Http\Middlewares\Middleware as Base;
 use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
 
+/**
+ * Class Middleware
+ *
+ * Handles DriftQL request filtering, configuration state checks, 
+ * and user authentication token lifecycle verification.
+ *
+ * @package Tonka\DriftQL
+ * @author clicalmani
+ */
 class Middleware extends Base 
 {
     /**
-     * Handler
+     * Handle incoming HTTP requests for DriftQL routes.
      * 
-     * @param \Clicalmani\Foundation\Http\Requests\RequestInterface $request Request object
-     * @param \Clicalmani\Foundation\Http\ResponseInterface $response Response object
-     * @param \Closure $next Next middleware function
+     * @param \Clicalmani\Foundation\Http\RequestInterface $request Incoming HTTP request instance.
+     * @param \Clicalmani\Foundation\Http\ResponseInterface $response Outgoing HTTP response instance.
+     * @param \Closure $next Next middleware handler in the pipeline.
      * @return \Clicalmani\Foundation\Http\ResponseInterface|\Clicalmani\Foundation\Http\RedirectInterface
      */
     public function handle(RequestInterface $request, ResponseInterface $response, \Closure $next) : \Clicalmani\Foundation\Http\ResponseInterface|\Clicalmani\Foundation\Http\RedirectInterface
     {
         if ($config = config('driftql')) {
-            if ( ! $config['enabled'] ) $response->forbidden();
+            // Reject the request if the DriftQL bridge is explicitly disabled
+            if ( ! $config['enabled'] ) {
+                $response->forbidden();
+            }
 
             if ($user = $request->user()) {
+                // Terminate session if user claims authentication but is no longer marked online
                 if ($user->isAuthenticated() && false === $user->isOnline()) {
                     $user->destroy();
                     return $response->unauthorized();
                 }
 
-                $user->authenticate(); // Renew user authentication
+                $user->authenticate(); // Renew user authentication token/session
 
                 return $next();
             }
@@ -36,7 +49,7 @@ class Middleware extends Base
     }
 
     /**
-     * Bootstrap
+     * Bootstrap required middleware components and dependencies.
      * 
      * @return void
      */

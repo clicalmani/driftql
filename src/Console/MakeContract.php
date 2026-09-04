@@ -9,9 +9,9 @@ use Clicalmani\Foundation\Sandbox\Sandbox;
 use Symfony\Component\Console\Input\InputArgument;
 
 /**
- * Create a new middleware service
+ * Console command for creating new DriftQL contract classes.
  * 
- * @package Clicalmani\Console
+ * @package Tonka\DriftQL\Console
  * @author clicalmani
  */
 #[AsCommand(
@@ -21,28 +21,45 @@ use Symfony\Component\Console\Input\InputArgument;
 )]
 class MakeContract extends Command
 {
-    private $contracts_path;
+    /**
+     * Directory path where generated contract files are stored.
+     * 
+     * @var string
+     */
+    private string $contracts_path;
 
-    public function __construct(protected $rootPath)
+    /**
+     * MakeContract command constructor.
+     *
+     * @param string $rootPath Application root path.
+     */
+    public function __construct(protected string $rootPath)
     {
         $this->contracts_path = $rootPath . '/app/Contracts/DriftQL';
         $this->mkdir($this->contracts_path);
         parent::__construct();
     }
 
+    /**
+     * Execute the contract generation command.
+     *
+     * @param InputInterface $input Command input interface.
+     * @param OutputInterface $output Command output interface.
+     * @return int Command execution status code.
+     */
     protected function execute(InputInterface $input, OutputInterface $output) : int
     {
-        $name = $input->getArgument('name');
+        $name     = $input->getArgument('name');
         $filename = $this->contracts_path . '/' . $name . '.php';
 
         $success = file_put_contents(
             $filename, 
             ltrim( 
-                Sandbox::eval(file_get_contents( __DIR__ . "/samples/Contract.sample"), ['class' => $name])
+                Sandbox::eval(file_get_contents(__DIR__ . "/samples/Contract.sample"), ['class' => $name])
             )
         );
 
-        if ($success) {
+        if (false !== $success) {
             $output->writeln('Command executed successfully');
             return Command::SUCCESS;
         }
@@ -52,6 +69,11 @@ class MakeContract extends Command
         return Command::FAILURE;
     }
 
+    /**
+     * Configure command arguments and help details.
+     * 
+     * @return void
+     */
     protected function configure() : void
     {
         $this->setHelp('Create a new DriftQL contract class');

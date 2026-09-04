@@ -8,9 +8,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Clicalmani\Foundation\Sandbox\Sandbox;
 
 /**
- * Create a new middleware service
+ * Console command for generating DriftQL configuration files.
  * 
- * @package Clicalmani\Console
+ * @package Tonka\DriftQL\Console
  * @author clicalmani
  */
 #[AsCommand(
@@ -20,35 +20,53 @@ use Clicalmani\Foundation\Sandbox\Sandbox;
 )]
 class MakeConfig extends Command
 {
-    private $config_path;
+    /**
+     * Path to the target application config directory.
+     * 
+     * @var string
+     */
+    private string $config_path;
 
-    public function __construct(protected $rootPath)
+    /**
+     * MakeConfig command constructor.
+     *
+     * @param string $rootPath Application root path.
+     */
+    public function __construct(protected string $rootPath)
     {
         $this->config_path = $rootPath . '/config';
         $this->mkdir($this->config_path);
         parent::__construct();
     }
 
+    /**
+     * Execute the configuration generation command.
+     *
+     * @param InputInterface $input Command input interface.
+     * @param OutputInterface $output Command output interface.
+     * @return int Command execution status code.
+     */
     protected function execute(InputInterface $input, OutputInterface $output) : int
     {
-        $js_config = $this->rootPath . '/driftql.config.ts';
+        $js_config  = $this->rootPath . '/driftql.config.ts';
         $php_config = $this->config_path . '/driftql.php';
         $public_key = bin2hex(random_bytes(32));
 
-        $success = file_put_contents(
+        $js_success = file_put_contents(
             $js_config, 
             ltrim( 
-                Sandbox::eval(file_get_contents( __DIR__ . "/samples/DriftQLConfig.sample"), ['bridge_key' => $public_key])
-            )
-        );
-        $success = file_put_contents(
-            $php_config, 
-            ltrim( 
-                Sandbox::eval(file_get_contents( __DIR__ . "/samples/DriftQLPHPConfig.sample"), ['bridge_key' => $public_key])
+                Sandbox::eval(file_get_contents(__DIR__ . "/samples/DriftQLConfig.sample"), ['bridge_key' => $public_key])
             )
         );
 
-        if ($success) {
+        $php_success = file_put_contents(
+            $php_config, 
+            ltrim( 
+                Sandbox::eval(file_get_contents(__DIR__ . "/samples/DriftQLPHPConfig.sample"), ['bridge_key' => $public_key])
+            )
+        );
+
+        if (false !== $js_success && false !== $php_success) {
             $output->writeln('Command executed successfully');
             return Command::SUCCESS;
         }
@@ -58,6 +76,11 @@ class MakeConfig extends Command
         return Command::FAILURE;
     }
 
+    /**
+     * Configure command help information.
+     * 
+     * @return void
+     */
     protected function configure() : void
     {
         $this->setHelp('Create a new DriftQL configuration file');

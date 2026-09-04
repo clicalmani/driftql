@@ -7,19 +7,33 @@ use Clicalmani\Routing\Segment;
 use Clicalmani\Routing\SegmentValidator;
 use Inertia\Middleware;
 
+/**
+ * Class RouteBuilder
+ *
+ * Dynamically resolves and constructs DriftQL internal bridge routes based on
+ * the incoming client request URL and verb.
+ *
+ * @package Tonka\DriftQL
+ * @author clicalmani
+ */
 class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Routing\BuilderInterface
 {
     /**
-     * Client route
+     * HTTP verbs allowed by the DriftQL bridge router.
+     */
+    private const ALLOWED_VERBS = ['post', 'patch', 'delete'];
+
+    /**
+     * Client route instance.
      * 
      * @var \Clicalmani\Routing\Route
      */
     private Route $client;
 
     /**
-     * Create a new route.
-     * 
-     * @param string $uri Route uri
+     * Creates a new Route instance with a given URI.
+     *
+     * @param string $uri The URI scheme for the route.
      * @return \Clicalmani\Routing\Route
      */
     public function create(string $uri) : \Clicalmani\Routing\Route
@@ -28,72 +42,39 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
         $route->setUri($uri);
         return $route;
     }
-    
+
     /**
-     * Match candidate routes.
-     * 
-     * @param string $verb
-     * @return \Clicalmani\Routing\Route[] 
+     * Determines whether the current request verb matches any registered DriftQL bridge route scheme.
+     *
+     * @param string $verb The HTTP verb of the request.
+     * @return array<\Clicalmani\Routing\Route> Array containing the configured Route if matched, or an empty array.
      */
     public function matches(string $verb) : array
     {
-        if ( ! in_array($verb, ['post', 'patch', 'delete']) ) return [];
-        
+        if ( ! in_array($verb, self::ALLOWED_VERBS) ) return [];
+
         $route = $this->getClientRoute();
         $url_scheme = config('driftql.bridge_public_key');
-        
-        if ($url_scheme && $route && str_starts_with(trim(client_url(), '/'), $url_scheme)) {
-            $route->verb = $verb;
-            $route->addMiddleware('web');
-            $route->addMiddleware(Middleware::class);
 
-            $seg_names = [$url_scheme];
-            $arr = preg_split('/\//', client_url(), -1, PREG_SPLIT_NO_EMPTY);
-            
-            if ($hash = @$arr[1] ?? '') {
-                $seg_names[] = $hash;
-            }
-
-            foreach ($seg_names as $name) {
-                $segment = new Segment;
-                $segment->name = $name;
-                $route->appendSegment($segment);
-            }
-            
-            if (hash_equals($hash, sha1('store')) || hash_equals($hash, sha1('update'))) {
-                $route->action = WriteBridge::class;
-            } elseif (hash_equals($hash, sha1('delete'))) {
-                // ID Segment
-                $segment = new Segment;
-                $segment->name = config('route.parameter_prefix') . '__dq_id';
-                $segment->value = $_GET['__dq_id'];
-                $segment->validator = new SegmentValidator('__dq_id', 'required|id|model:' . Str::tableize($_GET['__dq_model']));
-                $route->appendSegment($segment);
-
-                // Model segment
-                $segment = new Segment;
-                $segment->name = config('route.parameter_prefix') . '__dq_model';
-                $segment->value = $_GET['__dq_model'];
-                $segment->validator = new SegmentValidator('__dq_model', 'required|dq_model');
-                $route->appendSegment($segment);
-
-                $route->action = DestroyBridge::class;
-            } elseif (hash_equals($hash, sha1('verify_password'))) {
-                $route->action = PasswordVerifyBridge::class;
-            } else {
-                $route->action = SelectBridge::class;
-            }
-            
-            return [$route];
+        if ( ! $url_scheme || ! $route || ! str_starts_with(trim(client_url(), '/'), $url_scheme) ) {
+            return [];
         }
 
-        return [];
+        $hash = $this->extractHash();
+        $action = BridgeAction::fromHash($hash);
+
+        $this->configureRoute($route, $verb, $url_scheme, $hash);
+        $this->appendActionSegments($route, $action);
+
+        $route->action = $action?->bridgeClass() ?? SelectBridge::class;
+
+        return [$route];
     }
 
     /**
-     * Locate the current route in the candidate routes list.
-     * 
-     * @param \Clicalmani\Routing\Route[] $matches
+     * Extracts and returns the single matching route from an array of matched candidates.
+     *
+     * @param array<\Clicalmani\Routing\Route> $matches
      * @return \Clicalmani\Routing\Route|null
      */
     public function locate(array $matches) : \Clicalmani\Routing\Route|null
@@ -102,16 +83,97 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
     }
 
     /**
-     * Build the requested route. 
-     * 
+     * Retrieves and resolves the current route matching the client's HTTP request verb.
+     *
      * @return \Clicalmani\Routing\Route|null
      */
     public function getRoute() : \Clicalmani\Routing\Route|null
     {
         return $this->locate(
-            $this->matches( 
+            $this->matches(
                 \Clicalmani\Foundation\Support\Facades\Route::getClientVerb()
-            ) 
+            )
         );
+    }
+
+    /**
+     * Extracts the SHA-1 action hash from the current client URL segments.
+     *
+     * @return string The extracted hash, or an empty string if absent.
+     */
+    private function extractHash() : string
+    {
+        $segments = preg_split('/\//', client_url(), -1, PREG_SPLIT_NO_EMPTY);
+        return $segments[1] ?? '';
+    }
+
+    /**
+     * Configures a route instance with HTTP verb, base middlewares, and base URI segments.
+     *
+     * @param Route $route The target Route instance.
+     * @param string $verb The HTTP method/verb.
+     * @param string $url_scheme The DriftQL bridge public key prefix.
+     * @param string $hash The extracted action hash segment.
+     * @return void
+     */
+    private function configureRoute(Route $route, string $verb, string $url_scheme, string $hash) : void
+    {
+        $route->verb = $verb;
+        $route->addMiddleware('web');
+        $route->addMiddleware(Middleware::class);
+
+        foreach (array_filter([$url_scheme, $hash]) as $name) {
+            $segment = new Segment;
+            $segment->name = $name;
+            $route->appendSegment($segment);
+        }
+    }
+
+    /**
+     * Appends action-specific URL segments and parameter validations to the route.
+     * Currently, only the Delete action requires extra URL parameters (target ID and model).
+     *
+     * @param Route $route The Route instance to mutate.
+     * @param BridgeAction|null $action The resolved bridge action enum.
+     * @return void
+     */
+    private function appendActionSegments(Route $route, ?BridgeAction $action) : void
+    {
+        if ($action !== BridgeAction::Delete) return;
+
+        $prefix = config('route.parameter_prefix');
+
+        $route->appendSegment($this->makeValidatedSegment(
+            segmentName: $prefix . '__dq_id',
+            validatorName: '__dq_id',
+            value: $_GET['__dq_id'],
+            rules: 'required|id|model:' . Str::tableize($_GET['__dq_model'])
+        ));
+
+        $route->appendSegment($this->makeValidatedSegment(
+            segmentName: $prefix . '__dq_model',
+            validatorName: '__dq_model',
+            value: $_GET['__dq_model'],
+            rules: 'required|dq_model'
+        ));
+    }
+
+    /**
+     * Helper method to build a URL segment coupled with a SegmentValidator.
+     *
+     * @param string $segmentName Name of the route parameter.
+     * @param string $validatorName Validator identifier.
+     * @param mixed $value Bound segment value.
+     * @param string $rules Validation rules to evaluate against the value.
+     * @return Segment
+     */
+    private function makeValidatedSegment(string $segmentName, string $validatorName, mixed $value, string $rules) : Segment
+    {
+        $segment = new Segment;
+        $segment->name = $segmentName;
+        $segment->value = $value;
+        $segment->validator = new SegmentValidator($validatorName, $rules);
+
+        return $segment;
     }
 }
