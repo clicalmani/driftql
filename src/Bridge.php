@@ -36,15 +36,18 @@ class Bridge extends Controller
      * @return ModelInterface|null An instance of the requested model interface.
      * @throws DriftQLException If authorization fails for the model policy.
      */
-    protected function getModel(): ?ModelInterface
+    protected function getModel(): ModelInterface
     {
-        if ($policy = $this->getPolicy()) {
-            if ( (is_subclass_of($policy, \Clicalmani\Foundation\Auth\Contract::class) && ! (new $policy)->authorize()) || !$policy->authorize() ) {
-                throw new DriftQLException("Unauthorized access to model " . $this->getRequestedModel());
-            }
-        }
-
         $modelClass = $this->getRequestedModel();
+
+        if ($id = request()->input('__dq_id')) {
+            if ($instance = $modelClass::find(request()->input('__dq_id'))) {
+                return $instance;
+            }
+
+            throw new DriftQLException("Model " . $modelClass . " with ID " . $id . " not found.");
+        } 
+        
         return new $modelClass;
     }
 
@@ -59,38 +62,42 @@ class Bridge extends Controller
     protected function getPolicy(?string $action = null): ?RequestInterface
     {
         $policies = config('driftql.policies', []);
-
+        
         if ($modelClass = $this->getRequestedModel()) {
             if (isset($policies[$modelClass])) {
                 $policy = $policies[$modelClass];
-
+                
                 if ( isset($action) ) {
                     if ( is_array($policy) ) {
                         if ( isset($policy[$action]) ) {
 
                             $policy = $policy[$action];
-
-                            if ( ! is_subclass_of($policy, \Clicalmani\Foundation\Http\Request::class) ) {
-                                throw new DriftQLException(sprintf("Policy for model %s must be a subclass of Clicalmani\Foundation\Http\Request", $model::class));
+                            
+                            if ( is_subclass_of($policy, \Clicalmani\Foundation\Http\RequestInterface::class) ) {
+                                $policy = new $policy;
+                                
+                                $policy->make(request()->all());
+                                $policy->authorize();
+                                $policy->prepareForValidation();
+                                $policy->signatures();
+                                Request::current($policy);
+                                
+                                return $policy;
                             }
-                        } else throw new DriftQLException(sprintf("Policy for model %s does not have a policy for action %s", $modelClass, $action));
+
+                            if ( (is_subclass_of($policy, \Clicalmani\Foundation\Auth\Contract::class) && !(new $policy)->authorize()) ) {
+                                throw new DriftQLException("Unauthorized access to model " . $this->getRequestedModel());
+                            }
+                        } else throw new DriftQLException(sprintf("Model %s does not have a policy for action %s", $modelClass, $action));
                     }
-                }
-
-                if (is_subclass_of($policy, \Clicalmani\Foundation\Http\RequestInterface::class)) {
-                    $policy = new $policy;
-
-                    $policy->authorize();
-                    $policy->prepareForValidation();
-                    $policy->signatures();
-                    Request::current($policy);
-                    
-                    return Request::current();
                 }
             }
         }
 
-        return null;
+        throw new DriftQLException(
+            sprintf("Policy for model %s must be a subclass of %s or %s", $model::class, 
+                \Clicalmani\Foundation\Http\Request::class, Clicalmani\Foundation\Auth\Contract::class)
+        );
     }
 
     /**

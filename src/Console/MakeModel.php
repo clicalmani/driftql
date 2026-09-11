@@ -33,7 +33,7 @@ class MakeModel extends Command
      *
      * @param string $rootPath Application root path.
      */
-    public function __construct(protected string $rootPath)
+    public function __construct(protected $rootPath)
     {
         $this->models_path = $this->rootPath . '/resources/js/database';
         $this->mkdir($this->models_path);

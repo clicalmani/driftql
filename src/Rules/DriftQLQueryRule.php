@@ -43,8 +43,8 @@ class DriftQLQueryRule extends DriftQLRule
             $this->error_message = 'Query must be a valid JSON array with keys: limit, offset, orders, wheres.';
             return false;
         }
-
-        $limit   = $query['limit'] ?? config('driftql.limits.default_limit');
+        
+        $limit   = $query['limit'];
         $offset  = $query['offset'] ?? 0;
         $orders  = $query['orders'] ?? [];
         $groups  = $query['groups'] ?? [];
@@ -60,17 +60,12 @@ class DriftQLQueryRule extends DriftQLRule
         $query['wheres']  = $wheres;
         $query['withs']   = $withs;
         $query['filters'] = $filters;
-
-        // Validate numeric integers for pagination
-        if ( ! preg_match('/^\d+$/', $limit) || ! preg_match('/^\d+$/', $offset) ) {
-            $this->error_message = "Limit and offset must be positive integers";
-        }
-
+        
         // Cap limit to the configured maximum threshold
-        if ($limit > config('driftql.limits.max_limit')) {
+        if (!$limit || $limit > config('driftql.limits.max_limit')) {
             $query['limit'] = config('driftql.limits.max_limit');
         }
-
+        
         // Perform authorization check via target policy contract if applicable
         if ($policy = $this->getPolicy()) {
             if ( is_subclass_of($policy, \Clicalmani\Foundation\Auth\Contract::class) && ! (new $policy)->authorize() ) {

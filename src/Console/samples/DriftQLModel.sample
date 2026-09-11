@@ -9,7 +9,7 @@ export class $model extends Elegant {
    */
   declare id: number | undefined;
   
-  constructor(data: any) {
+  constructor(data?: any) {
     super();
     Object.assign(this, data);
   }

@@ -55,7 +55,7 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
 
         $route = $this->getClientRoute();
         $url_scheme = config('driftql.bridge_public_key');
-
+        
         if ( ! $url_scheme || ! $route || ! str_starts_with(trim(client_url(), '/'), $url_scheme) ) {
             return [];
         }

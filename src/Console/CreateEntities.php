@@ -40,7 +40,7 @@ class CreateEntities extends Command
      *
      * @param string $rootPath Application root path.
      */
-    public function __construct(protected string $rootPath)
+    public function __construct(protected $rootPath)
     {
         $this->entities_path = $rootPath . '/database/entities';
         $this->models_path   = $rootPath . '/app/Models';

@@ -32,7 +32,7 @@ class MakeConfig extends Command
      *
      * @param string $rootPath Application root path.
      */
-    public function __construct(protected string $rootPath)
+    public function __construct(protected $rootPath)
     {
         $this->config_path = $rootPath . '/config';
         $this->mkdir($this->config_path);

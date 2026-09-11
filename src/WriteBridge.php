@@ -1,6 +1,7 @@
 <?php 
 namespace Tonka\DriftQL;
 
+use Clicalmani\Foundation\Http\Request;
 use Clicalmani\Foundation\Http\RequestInterface;
 use Clicalmani\Foundation\Http\ResponseInterface;
 use Clicalmani\Foundation\Support\Facades\DB;
@@ -34,7 +35,7 @@ class WriteBridge extends Bridge
             if (!$policy->authorize()) {
                 return response()->forbidden();
             }
-
+            
             return DB::transaction(function() {
                 try {
                     /** @var \Clicalmani\Database\Factory\Models\Elegant */
@@ -52,7 +53,7 @@ class WriteBridge extends Bridge
                 }
             });
         }
-
+        
         return response()->notFound();
     }
 }

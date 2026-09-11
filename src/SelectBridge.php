@@ -33,11 +33,11 @@ class SelectBridge extends Bridge
         $query = $request->__dq_query;
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
         $modelInstance = $this->getModel();
-
+        
         if ($request->__dq_by_id) {
             $query = $this->applyByIdConstraints($query);
         }
-
+        
         $whereResult = $this->buildWhereClause($request, $query, $modelInstance);
         if ($whereResult instanceof ResponseInterface) {
             return $whereResult;
@@ -55,9 +55,9 @@ class SelectBridge extends Bridge
 
         $builder->distinct($request->__dq_distinct);
 
-        $this->applyJoins($builder, $query['joins']);
-        $this->applyOrderBy($builder, $query['orders']);
-        $this->applyGroupBy($builder, $query['groups']);
+        $this->applyJoins($builder, $query['joins'] ?? []);
+        $this->applyOrderBy($builder, $query['orders'] ?? []);
+        $this->applyGroupBy($builder, $query['groups'] ?? []);
         $this->applyWith($builder, $query['withs'] ?? []);
 
         return $this->executeQuery($builder, $query);
@@ -138,7 +138,7 @@ class SelectBridge extends Bridge
      */
     private function applyPolicy($modelInstance, mixed $where, array $bindings) : array|ResponseInterface
     {
-        $currentUserRole = auth()?->role ?? null;
+        $currentUserRole = auth()?->role ?? '';
         $policy = $this->getConfig()['policies'][$modelInstance::class][$currentUserRole] ?? null;
 
         if ( ! is_array($policy) ) {
@@ -302,10 +302,10 @@ class SelectBridge extends Bridge
     private function executeQuery($builder, array $query) : ResponseInterface
     {
         try {
-            $builder->limit($query['offset'] ?? 0, $query['limit'] ?? 1);
+            $builder->limit($query['offset'], $query['limit']);
 
             $data = $builder->get();
-
+            
             if (isset($query['paginate']) && $query['paginate']) {
                 $queryBuilder = $builder->getBuilder();
                 return response()->json([

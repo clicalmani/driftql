@@ -30,10 +30,11 @@ trait FindModel
     protected function getRequestedModel(): string
     {
         $name = request()->input('__dq_model');
+        
         if (array_key_exists($name, $this->resolvedModels)) {
             return $this->resolvedModels[$name];
         }
-
+        
         $matches = (new DirectoryScanner(
             rootPath: app()->appPath('Models'),
             baseNamespace: 'App\\Models',
@@ -45,7 +46,7 @@ trait FindModel
         if (empty($matches)) {
             throw new \Exception("Model '$name' not found in the application.");
         }
-
+        
         return $this->resolvedModels[$name] = $matches[0];
     }
 }

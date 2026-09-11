@@ -33,7 +33,7 @@ class MakeContract extends Command
      *
      * @param string $rootPath Application root path.
      */
-    public function __construct(protected string $rootPath)
+    public function __construct(protected $rootPath)
     {
         $this->contracts_path = $rootPath . '/app/Contracts/DriftQL';
         $this->mkdir($this->contracts_path);
