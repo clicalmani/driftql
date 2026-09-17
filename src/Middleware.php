@@ -1,9 +1,9 @@
 <?php
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Http\Middlewares\Middleware as Base;
-use Clicalmani\Foundation\Http\RequestInterface;
-use Clicalmani\Foundation\Http\ResponseInterface;
+use Clicalmani\Core\Http\Middlewares\Middleware as Base;
+use Clicalmani\Core\Http\RequestInterface;
+use Clicalmani\Core\Http\ResponseInterface;
 
 /**
  * Class Middleware
@@ -19,12 +19,12 @@ class Middleware extends Base
     /**
      * Handle incoming HTTP requests for DriftQL routes.
      * 
-     * @param \Clicalmani\Foundation\Http\RequestInterface $request Incoming HTTP request instance.
-     * @param \Clicalmani\Foundation\Http\ResponseInterface $response Outgoing HTTP response instance.
+     * @param \Clicalmani\Core\Http\RequestInterface $request Incoming HTTP request instance.
+     * @param \Clicalmani\Core\Http\ResponseInterface $response Outgoing HTTP response instance.
      * @param \Closure $next Next middleware handler in the pipeline.
-     * @return \Clicalmani\Foundation\Http\ResponseInterface|\Clicalmani\Foundation\Http\RedirectInterface
+     * @return \Clicalmani\Core\Http\ResponseInterface|\Clicalmani\Core\Http\RedirectInterface
      */
-    public function handle(RequestInterface $request, ResponseInterface $response, \Closure $next) : \Clicalmani\Foundation\Http\ResponseInterface|\Clicalmani\Foundation\Http\RedirectInterface
+    public function handle(RequestInterface $request, ResponseInterface $response, \Closure $next) : \Clicalmani\Core\Http\ResponseInterface|\Clicalmani\Core\Http\RedirectInterface
     {
         if ($config = config('driftql')) {
             // Reject the request if the DriftQL bridge is explicitly disabled

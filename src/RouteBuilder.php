@@ -1,7 +1,7 @@
 <?php
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Support\Facades\Str;
+use Clicalmani\Core\Support\Facades\Str;
 use Clicalmani\Routing\Route;
 use Clicalmani\Routing\Segment;
 use Clicalmani\Routing\SegmentValidator;
@@ -91,7 +91,7 @@ class RouteBuilder extends \Clicalmani\Routing\Builder implements \Clicalmani\Ro
     {
         return $this->locate(
             $this->matches(
-                \Clicalmani\Foundation\Support\Facades\Route::getClientVerb()
+                \Clicalmani\Core\Support\Facades\Route::getClientVerb()
             )
         );
     }

@@ -1,7 +1,7 @@
 <?php
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Filesystem\DirectoryScanner;
+use Clicalmani\Core\Filesystem\DirectoryScanner;
 
 /**
  * Trait FindModel

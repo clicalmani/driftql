@@ -24,7 +24,7 @@ abstract class DriftQLRule extends \Clicalmani\Validation\Rule
      */
     protected function columnExists(string $column): bool 
     {
-        /** @var ?\Clicalmani\Foundation\Acme\Model */
+        /** @var ?\Clicalmani\Core\Acme\Model */
         $modelClass = $this->getRequestedModel();
 
         return (new $modelClass())->getEntity()->attributeExists($column);

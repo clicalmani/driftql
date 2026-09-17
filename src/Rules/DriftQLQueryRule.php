@@ -68,7 +68,7 @@ class DriftQLQueryRule extends DriftQLRule
         
         // Perform authorization check via target policy contract if applicable
         if ($policy = $this->getPolicy()) {
-            if ( is_subclass_of($policy, \Clicalmani\Foundation\Auth\Contract::class) && ! (new $policy)->authorize() ) {
+            if ( is_subclass_of($policy, \Clicalmani\Core\Auth\Contract::class) && ! (new $policy)->authorize() ) {
                 $this->error_message = "Unauthorized query";
                 return false;
             }

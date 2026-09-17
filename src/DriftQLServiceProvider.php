@@ -1,7 +1,7 @@
 <?php
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Providers\ServiceProvider;
+use Clicalmani\Core\Providers\ServiceProvider;
 
 /**
  * Class DriftQLServiceProvider
@@ -25,7 +25,7 @@ class DriftQLServiceProvider extends ServiceProvider
 
         // Register DriftQL-specific validation rules
         foreach ([Rules\DriftQLModelRule::class, Rules\DriftQLQueryRule::class, Rules\DriftQLJoinsRule::class] as $rule) {
-            \Clicalmani\Foundation\Providers\ValidationServiceProvider::addRule($rule);
+            \Clicalmani\Core\Providers\ValidationServiceProvider::addRule($rule);
         }
 
         // Register DriftQL console command handlers

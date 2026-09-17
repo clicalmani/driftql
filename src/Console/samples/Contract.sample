@@ -1,7 +1,7 @@
 <?php
 namespace App\Contracts\DriftQL;
 
-class $class extends \Clicalmani\Foundation\Auth\Contract
+class $class extends \Clicalmani\Core\Auth\Contract
 {
     public function authorize(): bool
     {

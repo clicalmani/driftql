@@ -1,10 +1,10 @@
 <?php 
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Http\Request;
-use Clicalmani\Foundation\Http\RequestInterface;
-use Clicalmani\Foundation\Http\ResponseInterface;
-use Clicalmani\Foundation\Support\Facades\DB;
+use Clicalmani\Core\Http\Request;
+use Clicalmani\Core\Http\RequestInterface;
+use Clicalmani\Core\Http\ResponseInterface;
+use Clicalmani\Core\Support\Facades\DB;
 use Clicalmani\Validation\AsValidator;
 
 /**
@@ -21,8 +21,8 @@ class WriteBridge extends Bridge
     /**
      * Handle the incoming write request (store or update).
      *
-     * @param \Clicalmani\Foundation\Http\RequestInterface $request
-     * @return \Clicalmani\Foundation\Http\ResponseInterface
+     * @param \Clicalmani\Core\Http\RequestInterface $request
+     * @return \Clicalmani\Core\Http\ResponseInterface
      * @throws \Exception Re-throws any exception caught during transaction execution.
      */
     #[AsValidator(

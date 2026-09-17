@@ -1,8 +1,8 @@
 <?php 
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Http\RequestInterface;
-use Clicalmani\Foundation\Http\ResponseInterface;
+use Clicalmani\Core\Http\RequestInterface;
+use Clicalmani\Core\Http\ResponseInterface;
 use Clicalmani\Validation\AsValidator;
 
 /**
@@ -18,8 +18,8 @@ class PasswordVerifyBridge extends Bridge
     /**
      * Handle the incoming password verification request.
      *
-     * @param \Clicalmani\Foundation\Http\RequestInterface $request
-     * @return \Clicalmani\Foundation\Http\ResponseInterface
+     * @param \Clicalmani\Core\Http\RequestInterface $request
+     * @return \Clicalmani\Core\Http\ResponseInterface
      */
     #[AsValidator(
         __dq_model: 'required|dql_model'

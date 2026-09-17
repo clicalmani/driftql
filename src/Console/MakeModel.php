@@ -6,7 +6,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
-use Clicalmani\Foundation\Sandbox\Sandbox;
+use Clicalmani\Core\Sandbox\Sandbox;
 
 /**
  * Console command for creating new DriftQL TypeScript models.

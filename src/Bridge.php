@@ -2,9 +2,9 @@
 namespace Tonka\DriftQL;
 
 use Clicalmani\Database\Factory\Models\ModelInterface;
-use Clicalmani\Foundation\Acme\Controller;
-use Clicalmani\Foundation\Http\Request;
-use Clicalmani\Foundation\Http\RequestInterface;
+use Clicalmani\Core\Acme\Controller;
+use Clicalmani\Core\Http\Request;
+use Clicalmani\Core\Http\RequestInterface;
 use Tonka\DriftQL\Exceptions\DriftQLException;
 
 /**
@@ -73,7 +73,7 @@ class Bridge extends Controller
 
                             $policy = $policy[$action];
                             
-                            if ( is_subclass_of($policy, \Clicalmani\Foundation\Http\RequestInterface::class) ) {
+                            if ( is_subclass_of($policy, \Clicalmani\Core\Http\RequestInterface::class) ) {
                                 $policy = new $policy;
                                 
                                 $policy->make(request()->all());
@@ -85,7 +85,7 @@ class Bridge extends Controller
                                 return $policy;
                             }
 
-                            if ( (is_subclass_of($policy, \Clicalmani\Foundation\Auth\Contract::class) && !(new $policy)->authorize()) ) {
+                            if ( (is_subclass_of($policy, \Clicalmani\Core\Auth\Contract::class) && !(new $policy)->authorize()) ) {
                                 throw new DriftQLException("Unauthorized access to model " . $this->getRequestedModel());
                             }
                         } else throw new DriftQLException(sprintf("Model %s does not have a policy for action %s", $modelClass, $action));
@@ -96,7 +96,7 @@ class Bridge extends Controller
 
         throw new DriftQLException(
             sprintf("Policy for model %s must be a subclass of %s or %s", $model::class, 
-                \Clicalmani\Foundation\Http\Request::class, Clicalmani\Foundation\Auth\Contract::class)
+                \Clicalmani\Core\Http\Request::class, Clicalmani\Core\Auth\Contract::class)
         );
     }
 

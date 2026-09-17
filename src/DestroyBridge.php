@@ -1,9 +1,9 @@
 <?php 
 namespace Tonka\DriftQL;
 
-use Clicalmani\Foundation\Http\Request;
-use Clicalmani\Foundation\Http\RequestInterface;
-use Clicalmani\Foundation\Http\ResponseInterface;
+use Clicalmani\Core\Http\Request;
+use Clicalmani\Core\Http\RequestInterface;
+use Clicalmani\Core\Http\ResponseInterface;
 use Clicalmani\Validation\AsValidator;
 
 /**
@@ -19,8 +19,8 @@ class DestroyBridge extends Bridge
     /**
      * Handle the incoming request to delete a resource.
      *
-     * @param \Clicalmani\Foundation\Http\RequestInterface $request
-     * @return \Clicalmani\Foundation\Http\ResponseInterface
+     * @param \Clicalmani\Core\Http\RequestInterface $request
+     * @return \Clicalmani\Core\Http\ResponseInterface
      */
     #[AsValidator(
         __dq_id: 'required|numeric|min:1',
