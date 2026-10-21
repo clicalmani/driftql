@@ -29,24 +29,17 @@ trait FindModel
      */
     protected function getRequestedModel(): string
     {
-        $name = request()->input('__dq_model');
-        
-        if (array_key_exists($name, $this->resolvedModels)) {
-            return $this->resolvedModels[$name];
+        $key = request()->input('__dq_model');
+        $modelClass = config("driftql.whitelist.allowed_models.{$key}");
+
+        if (array_key_exists($key, $this->resolvedModels)) {
+            return $this->resolvedModels[$key];
         }
-        
-        $matches = (new DirectoryScanner(
-            rootPath: app()->appPath('Models'),
-            baseNamespace: 'App\\Models',
-            ignore: ['.', '..']
-        ))->discoverClasses(
-            fn(string $class) => class_basename($class) === $name
-        );
-        
-        if (empty($matches)) {
-            throw new \Exception("Model '$name' not found in the application.");
+
+        if ($modelClass === null) {
+            throw new \Exception("Model index '{$key}' is not allowed or not configured in the whitelist.");
         }
-        
-        return $this->resolvedModels[$name] = $matches[0];
+
+        return $this->resolvedModels[$key] = $modelClass;
     }
 }

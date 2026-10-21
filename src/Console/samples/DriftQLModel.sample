@@ -2,7 +2,7 @@ import { Elegant } from "driftql-react";
 
 export class $model extends Elegant {
   
-  protected static resourceName = '$model';
+  protected static resourceName = '$key';
 
   /**
    * You can add types for autocomplete.

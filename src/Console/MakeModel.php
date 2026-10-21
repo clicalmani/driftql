@@ -7,6 +7,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
 use Clicalmani\Core\Sandbox\Sandbox;
+use Clicalmani\Core\Filesystem\DirectoryScanner;
 
 /**
  * Console command for creating new DriftQL TypeScript models.
@@ -36,7 +37,6 @@ class MakeModel extends Command
     public function __construct(protected $rootPath)
     {
         $this->models_path = $this->rootPath . '/resources/js/database';
-        $this->mkdir($this->models_path);
         parent::__construct();
     }
 
@@ -49,7 +49,32 @@ class MakeModel extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output) : int
     {
+        $this->mkdir($this->models_path);
+
         $name = $input->getArgument('name');
+
+        $matches = (new DirectoryScanner(
+            rootPath: app()->appPath('Models'),
+            baseNamespace: 'App\\Models',
+            ignore: ['.', '..']
+        ))->discoverClasses(
+            fn(string $class) => class_basename($class) === $name
+        );
+
+        if (empty($matches)) {
+            throw new \Exception("Model '$name' not found in the application.");
+        }
+
+        $modelClass = $matches[0];
+
+        $key = null;
+
+        foreach (config('driftql.whitelist.allowed_models') as $index => $value) {
+            if ($value === $modelClass) {
+                $key = $index;
+                break;
+            }
+        }
 
         $filename = $this->models_path . '/' . $name . '.ts';
 
@@ -57,7 +82,8 @@ class MakeModel extends Command
             $filename, 
             ltrim( 
                 Sandbox::eval(file_get_contents(__DIR__ . "/samples/DriftQLModel.sample"), [
-                    'model' => $name 
+                    'model' => $name,
+                    'key'   => $key
                 ])
             )
         );

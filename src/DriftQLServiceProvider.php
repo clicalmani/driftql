@@ -49,7 +49,9 @@ class DriftQLServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot(): void
+    public function boot(
+        ?\Clicalmani\Core\Acme\Container $container = null
+    ): void
     {
         if ( is_file(config_path('/driftql.php')) ) {
             app()->config->set('driftql', require_once config_path('/driftql.php'));

@@ -11,6 +11,17 @@
             "Tonka\\DriftQL\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tonka\\DriftQL\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
     "authors": [
         {
             "name": "clicalmani",

@@ -3,6 +3,7 @@ namespace Tonka\DriftQL;
 
 use Clicalmani\Core\Http\RequestInterface;
 use Clicalmani\Core\Http\ResponseInterface;
+use Clicalmani\Database\Factory\Models\Elegant;
 use Clicalmani\Validation\AsValidator;
 
 /**
@@ -15,6 +16,10 @@ use Clicalmani\Validation\AsValidator;
  */
 class SelectBridge extends Bridge
 {
+    private \Clicalmani\Database\Factory\Models\Elegant $modelInstance;
+
+    private array $resolvedModels = [];
+
     /**
      * Handle the incoming request.
      *
@@ -32,13 +37,13 @@ class SelectBridge extends Bridge
     {
         $query = $request->__dq_query;
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
-        $modelInstance = $this->getModel();
+        $this->modelInstance = $this->getModel();
         
         if ($request->__dq_by_id) {
             $query = $this->applyByIdConstraints($query);
         }
         
-        $whereResult = $this->buildWhereClause($request, $query, $modelInstance);
+        $whereResult = $this->buildWhereClause($request, $query, $this->modelInstance);
         if ($whereResult instanceof ResponseInterface) {
             return $whereResult;
         }
@@ -47,7 +52,7 @@ class SelectBridge extends Bridge
         $having = $this->buildHavingClause($query['havings']);
 
         /** @var \Clicalmani\Database\Factory\Models\Elegant */
-        $builder = $modelInstance::class::where($where, $bindings);
+        $builder = $this->modelInstance::class::where($where, $bindings);
 
         if ($query['havings']) {
             $builder->having($having);
@@ -172,7 +177,10 @@ class SelectBridge extends Bridge
      */
     private function buildConditionSegment(array $clause) : array
     {
-        $sql = $clause['column'] . ' ' . $clause['operator'] . ' ?';
+        $column = is_numeric($clause['column']) ? 
+            Column::fromIndex($clause['column'], $this->modelInstance->getEntity()) : $clause['column'];
+
+        $sql = $column . ' ' . $clause['operator'] . ' ?';
         $operator = strtolower($clause['operator']);
 
         if ($operator === 'in' && is_array($clause['value'])) {
@@ -198,17 +206,37 @@ class SelectBridge extends Bridge
         $having = true;
 
         foreach ($havings as $clause) {
-            $having .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . ' ' . $clause['operator'] . ' ';
-            $operator = strtolower($clause['operator']);
+            $column = is_numeric($clause['column']) ? 
+                Column::fromIndex($clause['column'], $this->modelInstance->getEntity()) : 
+                $clause['column'];
 
-            if ($operator === 'in' && is_array($clause['value'])) {
-                $having .= '(' . collect($clause['value'])->map(fn($v) => '"' . $v . '"')->join() . ')';
-            } elseif ($operator === 'between' && is_array($clause['value']) && count($clause['value']) === 2) {
-                $having .= $clause['value'][0] . ' AND ' . $clause['value'][1];
+            $having .= ' ' . $clause['boolean'] . ' ' . $column . ' ' . $clause['operator'] . ' ';
+            $operator = strtolower($clause['operator']);
+            $value = $clause['value'];
+
+            if (in_array($operator, ['in', 'not in'], true) && is_array($value)) {
+                $having .= '(' . implode(', ', array_map([$this, 'quoteHavingValue'], $value)) . ')';
+            } elseif ($operator === 'between' && is_array($value) && count($value) === 2) {
+                $having .= $this->quoteHavingValue($value[0]) . ' AND ' . $this->quoteHavingValue($value[1]);
+            } else {
+                $having .= $this->quoteHavingValue($value);
             }
         }
 
         return $having;
+    }
+
+    /**
+     * The builder only accepts raw SQL for HAVING: values must be escaped by the driver.
+     */
+    private function quoteHavingValue(mixed $value): string
+    {
+        return match (true) {
+            null === $value                  => 'NULL',
+            is_bool($value)                  => $value ? '1' : '0',
+            is_int($value), is_float($value) => (string) $value,
+            default                          => \Clicalmani\Core\Support\Facades\DB::getPdo()->quote((string) $value),
+        };
     }
 
     /**
@@ -220,8 +248,27 @@ class SelectBridge extends Bridge
      */
     private function applyJoins($builder, array $joins) : void
     {
-        foreach ($joins as $join) {
-            $builder->{$join['type'] . 'Join'}($join['resource'], $join['fkey'], $join['okey']);
+        foreach ($joins as $index => $join) {
+            // Resource
+            $modelClass = $this->resolveModelFromKey($join['resource']);
+            $model = new $modelClass;
+
+            if (!preg_match('/^[a-zA-Z_]+\.[a-zA-Z0-9_]+$/', $join['fkey'])) {
+                throw new \Exception("Invalid foreign key format: {$join['fkey']}");
+            }
+
+            if (!preg_match('/^[a-zA-Z_]+\.[a-zA-Z0-9_]+$/', $join['okey'])) {
+                throw new \Exception("Invalid original key format: {$join['okey']}");
+            }
+
+            // Foreign Key
+            $fkey = $this->resolveRelationKey($join['fkey']);
+
+            // Original Key
+            $okey = $this->resolveRelationKey($join['okey']);
+            
+
+            $builder->{$join['type'] . 'Join'}($model->getTable()->withAlias(), $fkey, $okey);
         }
     }
 
@@ -237,11 +284,17 @@ class SelectBridge extends Bridge
         if (empty($orders)) return;
 
         $columns = array_map(
-            fn($order) => $order['column'] . ' ' . $order['direction'],
+            fn($order) => is_numeric($order['column']) ?
+                Column::fromIndex($order['column'], $this->modelInstance->getEntity()) :
+                $order['column'],
+            $orders
+        );
+        $orders = array_map(
+            fn($order) => $order['direction'],
             $orders
         );
 
-        $builder->orderBy(join(', ', $columns));
+        $builder->orderBy($columns, $orders);
     }
 
     /**
@@ -256,7 +309,9 @@ class SelectBridge extends Bridge
         if (empty($groups)) return;
 
         $columns = array_map(
-            fn($group) => $group['column'] . ' ' . $group['direction'],
+            fn($group) => (is_numeric($group['column']) ?
+                Column::fromIndex($group['column'], $this->modelInstance->getEntity()) :
+                $group['column']) . ' ' . $group['direction'],
             $groups
         );
 
@@ -304,7 +359,7 @@ class SelectBridge extends Bridge
         try {
             $builder->limit($query['offset'], $query['limit']);
 
-            $data = $builder->get();
+            $data = $builder->get()->toArray();
             
             if (isset($query['paginate']) && $query['paginate']) {
                 $queryBuilder = $builder->getBuilder();
@@ -323,5 +378,40 @@ class SelectBridge extends Bridge
         } catch (\Exception $e) {
             throw $e;
         }
+    }
+
+    /**
+     * @return class-string<Elegant>
+     */
+    private function resolveModelFromKey(string $key): string
+    {
+        $modelClass = config("driftql.whitelist.allowed_models.{$key}");
+
+        if ($modelClass === null) {
+            throw new \Exception("Model for key '{$key}' is not whitelisted in the configuration.");
+        }
+
+        return $modelClass;
+    }
+
+    private function resolveRelationKey(string $key): string
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/', $key)) {
+            throw new \Exception("Invalid relation key format: {$key}. Expected format: 'model.column'");
+        }
+
+        [$r, $k] = explode('.', $key);
+        $modelClass = $this->resolveModelFromKey($r);
+
+        if (is_numeric($k)) {
+            $index = $k;
+            $k = Column::fromIndex($k, (new $modelClass)->getEntity());
+
+            if ($k === null) {
+                throw new \Exception("Key index {$index} does not exist in the model {$r}");
+            }
+        }
+
+        return $k;
     }
 }
