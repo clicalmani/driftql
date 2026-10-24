@@ -5,6 +5,7 @@ use Clicalmani\Core\Http\RequestInterface;
 use Clicalmani\Core\Http\ResponseInterface;
 use Clicalmani\Database\Factory\Models\Elegant;
 use Clicalmani\Validation\AsValidator;
+use Tonka\DriftQL\Exceptions\DriftQLException;
 
 /**
  * Class SelectBridge
@@ -151,11 +152,11 @@ class SelectBridge extends Bridge
         }
 
         if ( ! isset($policy['column'], $policy['operator'], $policy['value']) ) {
-            return response()->error('Invalid policy configuration');
+            throw new DriftQLException("Policy for role {$currentUserRole} on model " . $modelInstance::class . " is missing required keys.");
         }
 
         if ( ! $this->columnExists($policy['column']) ) {
-            return response()->error('Policy column does not exist in the database schema');
+            throw new DriftQLException("Policy column {$policy['column']} does not exist in model " . $modelInstance::class);
         }
 
         $value = $policy['value'] === 'current_user_id'
@@ -177,10 +178,11 @@ class SelectBridge extends Bridge
      */
     private function buildConditionSegment(array $clause) : array
     {
-        $column = is_numeric($clause['column']) ? 
-            Column::fromIndex($clause['column'], $this->modelInstance->getEntity()) : $clause['column'];
+        if ($this->columnExists($clause['column']) === false) {
+            throw new DriftQLException("Attribute {$clause['column']} does not exist in the model " . $this->modelInstance::class . " entity.");
+        }
 
-        $sql = $column . ' ' . $clause['operator'] . ' ?';
+        $sql = $clause['column'] . ' ' . $clause['operator'] . ' ?';
         $operator = strtolower($clause['operator']);
 
         if ($operator === 'in' && is_array($clause['value'])) {
@@ -206,37 +208,21 @@ class SelectBridge extends Bridge
         $having = true;
 
         foreach ($havings as $clause) {
-            $column = is_numeric($clause['column']) ? 
-                Column::fromIndex($clause['column'], $this->modelInstance->getEntity()) : 
-                $clause['column'];
+            if ($this->columnExists($clause['column']) === false) {
+                throw new DriftQLException("Attribute {$clause['column']} does not exist in the model " . $this->modelInstance::class . " entity.");
+            }
 
-            $having .= ' ' . $clause['boolean'] . ' ' . $column . ' ' . $clause['operator'] . ' ';
+            $having .= ' ' . $clause['boolean'] . ' ' . $clause['column'] . ' ' . $clause['operator'] . ' ';
             $operator = strtolower($clause['operator']);
-            $value = $clause['value'];
 
-            if (in_array($operator, ['in', 'not in'], true) && is_array($value)) {
-                $having .= '(' . implode(', ', array_map([$this, 'quoteHavingValue'], $value)) . ')';
-            } elseif ($operator === 'between' && is_array($value) && count($value) === 2) {
-                $having .= $this->quoteHavingValue($value[0]) . ' AND ' . $this->quoteHavingValue($value[1]);
-            } else {
-                $having .= $this->quoteHavingValue($value);
+            if ($operator === 'in' && is_array($clause['value'])) {
+                $having .= '(' . collect($clause['value'])->map(fn($v) => '"' . $v . '"')->join() . ')';
+            } elseif ($operator === 'between' && is_array($clause['value']) && count($clause['value']) === 2) {
+                $having .= $clause['value'][0] . ' AND ' . $clause['value'][1];
             }
         }
 
         return $having;
-    }
-
-    /**
-     * The builder only accepts raw SQL for HAVING: values must be escaped by the driver.
-     */
-    private function quoteHavingValue(mixed $value): string
-    {
-        return match (true) {
-            null === $value                  => 'NULL',
-            is_bool($value)                  => $value ? '1' : '0',
-            is_int($value), is_float($value) => (string) $value,
-            default                          => \Clicalmani\Core\Support\Facades\DB::getPdo()->quote((string) $value),
-        };
     }
 
     /**
@@ -283,15 +269,15 @@ class SelectBridge extends Bridge
     {
         if (empty($orders)) return;
 
+        if (false === $this->columnExists($orders[0]['column'])) {
+            throw new DriftQLException("Attribute {$orders[0]['column']} does not exist in the model " . $this->modelInstance::class . " entity.");
+        }
+
         $columns = array_map(
-            fn($order) => is_numeric($order['column']) ?
-                Column::fromIndex($order['column'], $this->modelInstance->getEntity()) :
-                $order['column'],
-            $orders
+            fn($order) => $order['column'], $orders
         );
         $orders = array_map(
-            fn($order) => $order['direction'],
-            $orders
+            fn($order) => $order['direction'], $orders
         );
 
         $builder->orderBy($columns, $orders);
@@ -308,10 +294,12 @@ class SelectBridge extends Bridge
     {
         if (empty($groups)) return;
 
+        if (false === $this->columnExists($group['column'])) {
+            throw new DriftQLException("Attribute {$group['column']} does not exist in the model " . $this->modelInstance::class . " entity.");
+        }
+
         $columns = array_map(
-            fn($group) => (is_numeric($group['column']) ?
-                Column::fromIndex($group['column'], $this->modelInstance->getEntity()) :
-                $group['column']) . ' ' . $group['direction'],
+            fn($group) => $group['column'] . ' ' . $group['direction'],
             $groups
         );
 
@@ -397,19 +385,14 @@ class SelectBridge extends Bridge
     private function resolveRelationKey(string $key): string
     {
         if (!preg_match('/^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/', $key)) {
-            throw new \Exception("Invalid relation key format: {$key}. Expected format: 'model.column'");
+            throw new \Exception("Invalid relation key format: {$key}. Expected format: 'Ressource.attribut'");
         }
 
-        [$r, $k] = explode('.', $key);
+        [$r, $k] = explode($key);
         $modelClass = $this->resolveModelFromKey($r);
 
-        if (is_numeric($k)) {
-            $index = $k;
-            $k = Column::fromIndex($k, (new $modelClass)->getEntity());
-
-            if ($k === null) {
-                throw new \Exception("Key index {$index} does not exist in the model {$r}");
-            }
+        if (false === $this->columnExists($k, (new $modelClass))) {
+            throw new \Exception("Attribute {$k} does not exist in the model {$r} entity.");
         }
 
         return $k;

@@ -5,6 +5,7 @@ use Clicalmani\Database\Factory\Models\ModelInterface;
 use Clicalmani\Core\Acme\Controller;
 use Clicalmani\Core\Http\Request;
 use Clicalmani\Core\Http\RequestInterface;
+use Clicalmani\Database\Factory\Models\Elegant;
 use Tonka\DriftQL\Exceptions\DriftQLException;
 
 /**
@@ -67,13 +68,7 @@ class Bridge extends Controller
         $actionName = $action ?? 'UNKNOW';
 
         if (null !== $policy) {
-            if (is_array($policy)) {
-                if (!array_key_exists($actionName, $policy)) {
-                    throw new DriftQLException(sprintf("Model %s does not have a policy for action %s", $modelClass, $action));
-                }
-
-                $policy = $policy[$actionName];
-            }
+            $policy = is_array($policy) ? $policy[$actionName]: $policy;
 
             if ( (is_subclass_of($policy, \Clicalmani\Core\Auth\Contract::class) && !(new $policy)->authorize()) ) {
                 throw new DriftQLException("Unauthorized access to model " . $this->getRequestedModel());
@@ -94,7 +89,7 @@ class Bridge extends Controller
 
         throw new DriftQLException(
             sprintf("Policy for model %s must be a subclass of %s or %s; %s given", $modelClass, 
-                \Clicalmani\Core\Http\Request::class, \Clicalmani\Core\Auth\Contract::class, $policy)
+                \Clicalmani\Core\Http\Request::class, Clicalmani\Core\Auth\Contract::class, $policy)
         );
     }
 
@@ -104,16 +99,19 @@ class Bridge extends Controller
      * @param string $column The column name to verify.
      * @return bool True if the column exists or strict checking is disabled, false otherwise.
      */
-    protected function columnExists(string $column): bool
+    protected function columnExists(string $column, ?Elegant $model = null): bool
     {
-        /** @var \Clicalmani\Database\Factory\Models\Elegant */
-        $model_instance = $this->getModel();
-        /** @var string */
-        $table = $model_instance->getTable();
-        /** @var string[] */
-        $columns = \Clicalmani\Database\Factory\Schema::getColumnListing($table);
+        /** @var Elegant */
+        $model ??= $this->getModel();
+        /** @var \Clicalmani\Database\Factory\Entity */
+        $entity = $model->getEntity();
 
-        if (!$this->getConfig()['security']['strict_column_check']) return true;
-        return in_array($column, $columns);
+        $attribute = $entity->getAttribute($column);
+
+        if ($attribute->isHidden()) {
+            return false;
+        }
+        
+        return $entity->hasAttribute($column);
     }
 }
